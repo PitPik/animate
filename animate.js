@@ -41,7 +41,11 @@
       return this.animate(element, styles, speed, endCallback, ease, true);
     },
     animate: function(element, styles, speed, endCallback, ease, queue) { // id?
-      this.stopAnimation(element); // TODO: check
+      var previous = this.stopAnimation(element); // TODO: check
+
+      if (previous) {
+        previous.endCallback.call(this, previous.element);
+      }
       _buffer.push({
         element: element,
         elementStyle: element.style,
@@ -80,11 +84,13 @@
 
       return triggerRendering(this);
     },
-    stopAnimation: function(element) { // TODO: use style parameter
-      removeItem(element, _buffer);
-      removeItem(element, _pauseBuffer);
+    stopAnimation: function(element, _this, endCallback) { // TODO: use style parameter
+      var bufferItem = removeItem(element, _buffer);
 
-      return triggerRendering(this);
+      removeItem(element, _pauseBuffer);
+      triggerRendering(this);
+
+      return bufferItem;
     },
     destroy: function() {
       // TODO
