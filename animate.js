@@ -32,15 +32,14 @@
         window.setTimeout(cb, 16);
       },
     _buffer = [],
-    _pauseBuffer = [],
-    _timer = 0;
+    _pauseBuffer = [];
 
 
   Animate.prototype = {
-    queue: function(element, styles, speed, endCallback, ease) {
-      return this.animate(element, styles, speed, endCallback, ease, true);
+    queue: function(element, styles, speed, cbs, ease) {
+      return this.animate(element, styles, speed, cbs, ease, true);
     },
-    animate: function(element, styles, speed, endCallback, ease, queue) { // id?
+    animate: function(element, styles, speed, cbs, ease, queue) { // id?
       var previous = this.stopAnimation(element); // TODO: check
 
       if (previous) {
@@ -53,10 +52,11 @@
         data: {
           startTime: new Date().getTime(),
           styles : sizzleCSS(styles.replace(/;\s*$/, '').split(/\s*;\s*/g)),
+          updateCallbacks: cbs && cbs.updateCallbacks,
           speed: (speed !== undefined ? speed : this.options.speed) * 1000,
           ease: ease || this.options.ease
         },
-        endCallback: endCallback || this.options.animationEndCallback
+        endCallback: cbs && cbs.endCallback || this.options.animationEndCallback
       });
 
       return queue ? this : triggerRendering(this);
@@ -176,6 +176,9 @@
           css[style] += values[n];
           // delete data.styles[style]; // only once; faster
         } else {
+          if(values[n].hasCB) {
+            values[n].delta = data.updateCallbacks[values[n].hasCB]() - values[n].start;
+          }
           css[style] += round(values[n].start + values[n].delta * ease,
             values[n].doRound) + values[n].unit;
         }
@@ -220,12 +223,14 @@
   function extractValues(value) {
     var doRound = value.indexOf('=>') !== -1,
       val = value.split(/(?:-|=)>/),
-      unit = val[0].replace(/[0-9.-]/g, '');
+      unit = val[0].replace(/[0-9.-]/g, ''),
+      hasCB = false;
 
     if (!val[1]) {
       return value;
     }
 
+    hasCB = val[1].split('fn|')[1];
     val[0] = +val[0] || parseInt(val[0]);
     val[1] = +val[1] || parseInt(val[1]);
 
@@ -233,7 +238,8 @@
       start: val[0],
       delta: val[1] >= 0 || val[1] < 0 ? val[1] - val[0] : 0,
       unit: unit,
-      doRound: doRound
+      doRound: doRound,
+      hasCB: hasCB,
     };
   }
 
