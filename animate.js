@@ -56,7 +56,7 @@
           speed: (speed !== undefined ? speed : this.options.speed) * 1000,
           ease: ease || this.options.ease
         },
-        endCallback: cbs && cbs.endCallback || this.options.animationEndCallback
+        endCallback: cbs && cbs.endCallback || this.options.animationEndCallback,
       });
 
       return queue ? this : triggerRendering(this);
@@ -84,7 +84,7 @@
 
       return triggerRendering(this);
     },
-    stopAnimation: function(element, _this, endCallback) { // TODO: use style parameter
+    stopAnimation: function(element, _this, endCallback) { // TODO: parameter
       var bufferItem = removeItem(element, _buffer);
 
       removeItem(element, _pauseBuffer);
@@ -149,9 +149,7 @@
     // fastest possible rendering as there is no further calculations
     // in between Element.style declarations
     for (var n = 0, l = buffer.length; n < l; n++) { // render
-      for (var style in buffer[n].preRender) {
-        buffer[n].elementStyle[style] = buffer[n].preRender[style];
-      }
+      for (var style in buffer[n].preRender) _render(buffer[n], style);
     }
 
     buffer.length && _animate(function() { // call again
@@ -164,28 +162,35 @@
     }
   }
 
+  function _render(_buffer, style) { // v8 opt.
+    _buffer.elementStyle[style] = _buffer.preRender[style];
+  }
+
   function preRender(data, ease) {
     var values = [],
       css = {}; // String is fater than Array.push().join()
 
-    for (var style in data.styles) {
-      values = data.styles[style];
-      css[style] = '';
-      for (var n = 0, len = values.length; n < len; n++) {
-        if (typeof values[n] === 'string') {
-          css[style] += values[n];
-          // delete data.styles[style]; // only once; faster
-        } else {
-          if(values[n].hasCB) {
-            values[n].delta = data.updateCallbacks[values[n].hasCB]() - values[n].start;
-          }
-          css[style] += round(values[n].start + values[n].delta * ease,
-            values[n].doRound) + values[n].unit;
-        }
-      }
-    }
+    for (var style in data.styles) _preRender(style, data, ease, values, css);
 
     return css;
+  }
+
+  function _preRender(style, data, ease, values, css) { // v8 opt.
+    values = data.styles[style];
+    css[style] = '';
+    for (var n = 0, len = values.length; n < len; n++) {
+      if (typeof values[n] === 'string') {
+        css[style] += values[n];
+        // delete data.styles[style]; // only once; faster
+      } else {
+        if(values[n].hasCB) {
+          values[n].delta =
+            data.updateCallbacks[values[n].hasCB]() - values[n].start;
+        }
+        css[style] += round(values[n].start + values[n].delta * ease,
+          values[n].doRound) + values[n].unit;
+      }
+    }
   }
 
   function sizzleCSS(styles) {
